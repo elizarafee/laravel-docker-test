@@ -1,0 +1,94 @@
+version: "3.9"
+
+# define an internal docker network that all of our services will use
+networks:
+    laravel:
+
+# define services you will use
+services: 
+    nginx:
+        # define depends_on because the webserver needs to rely on this services being up and ready before initialized
+        # it tells the docker to spin up this dependent services first then run the nginx services
+        depends_on: 
+            - php
+            - mysql
+        
+        # define the thing the services are built on
+        # for now image is used; nginx:stable-alpine is a internet starter
+        image: nginx:stable-alpine
+
+        # define a container name of your choice
+        container_name: nginx
+
+        # define the ports
+        ports: 
+            - "8080:80"
+
+        # define volume: volume is a symlink from the local machine like particular src
+        # on terminal (mkdir src -> touch dockerfile)
+        # needs files for webserver which by default looks in /var/www/html file
+        volumes: 
+            - ./src:/var/www/html
+        # but it's not configured for laravel app so need to overwrite with a custom nginx so:
+            - ./nginx/default.cong:/etc/nginx/conf.d/default.conf
+        # on terminal (mkdir nginx -> touch nginx/default.conf)
+        # code for default configuration for nginx
+        # on terminal (cd src -> mkdir public -> touch public/index.html -> cd ..)
+
+        networks:
+            laravel:
+
+
+    mysql:
+        image: mysql
+        
+        container_name: mysql
+        
+        command: --default-authentication-plugin=mysql_native_password
+        
+        # restart is for letting docker know to restart the mysql container for any reason it stops
+        restart: always
+        
+        # tty flag enables the shell-like interface if we need to interact with mysql container at all
+        tty: true
+
+        # environment variables        
+        environment:
+            MYSQL_DATABASE: homestead
+            MYSQL_USER: homestead
+            MYSQL_PASSWORD: secret
+            MYSQL_ROOT_PASSWORD: secret
+            SERVICE_TAGS: dev
+            SERVICE_NAME: mysql
+        
+
+        ports: 
+            - "3306:3306"
+
+        #volume is necessary because if someone wants the data remain whatever a container is stopped or restarted
+        # on terminal (cd src -> mkdir mysql)
+        volumes: 
+            - ./mysql:/var/lib/mysql
+        networks:
+            laravel:
+
+    php:
+        # we cant directly include image for php because laravel requires a PDO extension, that's not installed in any php image
+        # so use build instead of image
+        # by using build the docker will know to build the php locally
+        # after that use 'context' which is the directory to search for named Dockerfile
+        # on terminal (-touch Dockerfile)
+        build: 
+            context: .
+            dockerfile: Dockerfile
+        
+        container_name: php
+
+        volumes:
+            - ./src:/var/www/html
+
+        ports: 
+            - "9000:9000"
+
+        networks:
+            laravel:
